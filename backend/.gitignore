@@ -1,0 +1,19 @@
+# Virtual Environment
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+
+# Environment
+.env
+
+# Alembic
+alembic/versions/*.py
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
