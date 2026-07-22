@@ -35,6 +35,11 @@ class ProductService:
             raise ConflictException(
                 "SKU already exists."
             )
+
+        if product.cost_price < 0:
+            raise BadRequestException(
+                "Cost price cannot be negative"
+            )
         
         if product.selling_price < product.cost_price:
             raise BadRequestException(
