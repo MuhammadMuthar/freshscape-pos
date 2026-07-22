@@ -1,61 +1,45 @@
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.product import Product
-from app.schemas.product import ProductCreate
+from sqlalchemy import select
+
+from app.models.category import Category
+from app.schemas.category import CategoryCreate
 
 
-class ProductRepository:
+class CategoryRepository:
 
     def create(
         self,
         db: Session,
-        product: ProductCreate,
-    ) -> Product:
+        category: CategoryCreate
+    ) -> Category:
 
-        db_product = Product(
-            **product.model_dump()
+        db_category = Category(
+            name=category.name,
+            description=category.description
         )
 
-        db.add(db_product)
+        db.add(db_category)
         db.commit()
-        db.refresh(db_product)
+        db.refresh(db_category)
 
-        return db_product
+        return db_category
 
     def get_all(
         self,
-        db: Session,
-    ) -> list[Product]:
-
-        statement = select(Product)
-
-        result = db.execute(statement)
-
-        return list(result.scalars().all())
-
-    def get_by_barcode(
-        self,
-        db: Session,
-        barcode: str,
+        db: Session
     ):
 
-        statement = (
-            select(Product)
-            .where(Product.barcode == barcode)
-        )
+        return db.query(Category).all()
 
-        return db.execute(statement).scalar_one_or_none()
-
-    def get_by_sku(
+    def get_by_id(
         self,
         db: Session,
-        sku: str,
+        category_id: int,
     ):
-
         statement = (
-            select(Product)
-            .where(Product.sku == sku)
+            select(Category)
+            .where(Category.id == category_id)
         )
 
         return db.execute(statement).scalar_one_or_none()

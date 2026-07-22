@@ -64,3 +64,9 @@ class ProductService:
             db,
             product,
         )
+
+    def get_all(
+        self,
+        db: Session,
+    ):
+        return self.product_repository.get_all(db)
