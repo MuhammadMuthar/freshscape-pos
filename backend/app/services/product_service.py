@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from app.schemas.pagination import PaginatedResponse
 
 from app.core.exceptions import (
     BadRequestException,
@@ -73,5 +74,35 @@ class ProductService:
     def get_all(
         self,
         db: Session,
+        page: int,
+        page_size: int,
+        search: str | None = None,
+        category_id: int | None = None,
+        is_active: bool | None = None,
+        sort_by: str = "name",
+        order: str = "asc",
     ):
-        return self.product_repository.get_all(db)
+        products = self.product_repository.get_all(
+            db,
+            page,
+            page_size,
+            search,
+            category_id,
+            is_active,
+            sort_by,
+            order,
+        )
+
+        total = self.product_repository.count(
+            db,
+            search,
+            category_id,
+            is_active,
+        )
+
+        return PaginatedResponse.create(
+            items=products,
+            page=page,
+            page_size=page_size,
+            total=total,
+        )

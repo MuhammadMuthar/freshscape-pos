@@ -19,3 +19,10 @@ class CategoryResponse(CategoryBase):
     id: int
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CategorySimpleResponse(BaseModel):
+    id: int
+    name: str
+
+    model_config = ConfigDict(from_attributes=True)

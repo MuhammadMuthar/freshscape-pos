@@ -4,6 +4,8 @@ from pydantic import BaseModel, ConfigDict
 
 from app.enums.product_unit import ProductUnit
 
+from app.schemas.category import CategorySimpleResponse
+
 
 class ProductBase(BaseModel):
     barcode: str
@@ -49,6 +51,8 @@ class ProductUpdate(BaseModel):
 
 class ProductResponse(ProductBase):
     id: int
+
+    category: CategorySimpleResponse
 
     model_config = ConfigDict(
         from_attributes=True
