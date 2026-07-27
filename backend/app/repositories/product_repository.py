@@ -117,6 +117,34 @@ class ProductRepository:
 
         return list(result.scalars().all())
 
+    def get_by_id(
+        self,
+        db: Session,
+        product_id: int,
+    ):
+
+        statement = (
+            select(Product)
+            .where(Product.id == product_id)
+        )
+
+        return db.execute(statement).scalar_one_or_none()
+
+    def update_stock(
+        self,
+        db: Session,
+        product: Product,
+        new_stock_quantity: int,
+    ) -> Product:
+
+        product.stock_quantity = new_stock_quantity
+
+        db.add(product)
+        db.commit()
+        db.refresh(product)
+
+        return product
+
     def get_by_barcode(
         self,
         db: Session,

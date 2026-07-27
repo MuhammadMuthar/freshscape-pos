@@ -1,15 +1,16 @@
 from dotenv import load_dotenv
+from urllib.parse import quote_plus
 import os
 
 load_dotenv()
 
 
 class Settings:
-    DATABASE_HOST = os.getenv("DATABASE_HOST")
-    DATABASE_PORT = os.getenv("DATABASE_PORT")
-    DATABASE_NAME = os.getenv("DATABASE_NAME")
-    DATABASE_USER = os.getenv("DATABASE_USER")
-    DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD")
+    DATABASE_USER: str = os.getenv("DATABASE_USER", "")
+    DATABASE_PASSWORD: str = os.getenv("DATABASE_PASSWORD", "")
+    DATABASE_HOST: str = os.getenv("DATABASE_HOST", "localhost")
+    DATABASE_PORT: str = os.getenv("DATABASE_PORT", "3306")
+    DATABASE_NAME: str = os.getenv("DATABASE_NAME", "")
 
     SECRET_KEY = os.getenv("SECRET_KEY")
     ALGORITHM = os.getenv("ALGORITHM")
@@ -19,10 +20,13 @@ class Settings:
 
     @property
     def DATABASE_URL(self):
+        user = quote_plus(self.DATABASE_USER)
+        password = quote_plus(self.DATABASE_PASSWORD)
+
         return (
             f"mysql+pymysql://"
-            f"{self.DATABASE_USER}:"
-            f"{self.DATABASE_PASSWORD}@"
+            f"{user}:"
+            f"{password}@"
             f"{self.DATABASE_HOST}:"
             f"{self.DATABASE_PORT}/"
             f"{self.DATABASE_NAME}"

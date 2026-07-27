@@ -57,3 +57,14 @@ class ProductResponse(ProductBase):
     model_config = ConfigDict(
         from_attributes=True
     )
+
+
+class ProductSimpleResponse(BaseModel):
+    id: int
+    name: str
+    sku: str
+    stock_quantity: int
+
+    model_config = ConfigDict(
+        from_attributes=True
+    )
