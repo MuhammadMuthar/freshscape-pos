@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign in -- FreshScape Market POS</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  body.login-body {
+    background: var(--market-green-dark);
+    background-image:
+      radial-gradient(circle at 15% 20%, rgba(255,255,255,0.04) 0, transparent 40%),
+      radial-gradient(circle at 85% 80%, rgba(255,255,255,0.03) 0, transparent 40%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-5);
+  }
+
+  .login-wrap {
+    width: 100%;
+    max-width: 380px;
+  }
+
+  .login-brand {
+    text-align: center;
+    margin-bottom: var(--space-6);
+  }
+
+  .login-brand__mark {
+    font-family: var(--font-display);
+    font-size: 36px;
+    font-weight: 600;
+    color: #fff;
+    letter-spacing: -0.01em;
+  }
+
+  .login-brand__sub {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-top: 4px;
+  }
+
+  .login-card {
+    background: var(--surface);
+  }
+
+  .login-card h2 {
+    font-size: 20px;
+    margin-bottom: var(--space-1);
+  }
+
+  .login-card .text-soft {
+    margin-bottom: var(--space-5);
+  }
+
+  #login-error {
+    display: none;
+    background: var(--stamp-red-soft);
+    color: var(--stamp-red);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+    font-size: 13px;
+    margin-bottom: var(--space-4);
+  }
+
+  .login-submit {
+    width: 100%;
+    justify-content: center;
+    margin-top: var(--space-2);
+  }
+</style>
+</head>
+<body class="login-body">
+
+  <div class="login-wrap">
+    <div class="login-brand">
+      <div class="login-brand__mark">FreshScape</div>
+      <div class="login-brand__sub">Market POS &middot; Register Terminal</div>
+    </div>
+
+    <div class="receipt-card login-card">
+      <h2>Sign in</h2>
+      <p class="text-soft text-sm">Enter your terminal credentials to start your shift.</p>
+
+      <div id="login-error"></div>
+
+      <form id="login-form">
+        <div class="field">
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username" autocomplete="username" required autofocus>
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="btn btn-primary login-submit" id="login-btn">Sign in</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script>
+    // This page is the one place auth.requireAuth() should NOT run --
+    // it's the destination for it, not a page it guards.
+    if (auth.isLoggedIn()) {
+      window.location.href = 'index.html';
+    }
+
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const errorEl = document.getElementById('login-error');
+      const btn = document.getElementById('login-btn');
+      errorEl.style.display = 'none';
+
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+
+      btn.disabled = true;
+      btn.textContent = 'Signing in...';
+
+      try {
+        const { access_token } = await api.login(username, password);
+        auth.setToken(access_token);
+        window.location.href = 'index.html';
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Sign in';
+      }
+    });
+  </script>
+</body>
+</html>

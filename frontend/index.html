@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard -- FreshScape Market POS</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="dashboard">
+
+  <div class="app-shell">
+    <div id="sidebar-root"></div>
+
+    <main class="main">
+      <div class="page-header">
+        <div>
+          <div class="page-header__eyebrow">Overview</div>
+          <h1>Dashboard</h1>
+        </div>
+      </div>
+
+      <div class="kpi-grid" id="kpi-grid">
+        <div class="card">
+          <div class="kpi-label">Active Products</div>
+          <div class="kpi-value mono" id="kpi-products">&hellip;</div>
+        </div>
+        <div class="card">
+          <div class="kpi-label">Low Stock</div>
+          <div class="kpi-value mono" id="kpi-low-stock">&hellip;</div>
+        </div>
+        <div class="card">
+          <div class="kpi-label">Pending Purchase Orders</div>
+          <div class="kpi-value mono" id="kpi-pending-po">&hellip;</div>
+        </div>
+        <div class="card">
+          <div class="kpi-label">Today's Sales</div>
+          <div class="kpi-value mono" id="kpi-today-sales">&hellip;</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Low stock products</h3>
+        <p class="text-soft text-sm">Products at or below their minimum stock level.</p>
+        <div id="low-stock-list"></div>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/layout.js"></script>
+  <script>
+    async function loadDashboard() {
+      try {
+        // No dedicated reporting endpoint yet (that's a later phase) --
+        // these are computed client-side from what already exists.
+        // Good enough to be useful now; will get more precise later.
+
+        const productsPage = await api.get('/products?page=1&page_size=100&is_active=true');
+        document.getElementById('kpi-products').textContent = productsPage.total;
+
+        const lowStock = productsPage.items.filter(p => p.stock_quantity <= p.minimum_stock);
+        const lowStockEl = document.getElementById('kpi-low-stock');
+        lowStockEl.textContent = lowStock.length;
+        if (lowStock.length > 0) lowStockEl.classList.add('is-alert');
+
+        const listEl = document.getElementById('low-stock-list');
+        if (lowStock.length === 0) {
+          listEl.innerHTML = '<p class="text-soft text-sm" style="margin-top: var(--space-3);">Nothing running low right now.</p>';
+        } else {
+          listEl.innerHTML = `
+            <table style="margin-top: var(--space-3);">
+              <thead><tr><th>Product</th><th>SKU</th><th>Stock</th><th>Minimum</th></tr></thead>
+              <tbody>
+                ${lowStock.map(p => `
+                  <tr>
+                    <td>${p.name}</td>
+                    <td class="mono text-sm">${p.sku}</td>
+                    <td class="mono">${p.stock_quantity}</td>
+                    <td class="mono text-soft">${p.minimum_stock}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+        }
+
+        const pendingPOs = await api.get('/purchase-orders?status=pending&page=1&page_size=1');
+        document.getElementById('kpi-pending-po').textContent = pendingPOs.total;
+
+        const recentSales = await api.get('/sales?page=1&page_size=100');
+        const today = new Date().toDateString();
+        const todayTotal = recentSales.items
+          .filter(s => new Date(s.created_at).toDateString() === today)
+          .reduce((sum, s) => sum + parseFloat(s.total_amount), 0);
+        document.getElementById('kpi-today-sales').textContent = 'Rs ' + todayTotal.toFixed(2);
+
+      } catch (err) {
+        toast(err.message);
+      }
+    }
+
+    loadDashboard();
+  </script>
+</body>
+</html>
