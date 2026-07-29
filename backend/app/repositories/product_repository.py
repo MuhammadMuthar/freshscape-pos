@@ -130,6 +130,50 @@ class ProductRepository:
 
         return db.execute(statement).scalar_one_or_none()
 
+    def get_by_id_detailed(
+        self,
+        db: Session,
+        product_id: int,
+    ):
+
+        statement = (
+            select(Product)
+            .options(selectinload(Product.category))
+            .where(Product.id == product_id)
+        )
+
+        return db.execute(statement).scalar_one_or_none()
+
+    def update(
+        self,
+        db: Session,
+        product: Product,
+        update_data: dict,
+    ) -> Product:
+
+        for field, value in update_data.items():
+            setattr(product, field, value)
+
+        db.add(product)
+        db.commit()
+        db.refresh(product)
+
+        return product
+
+    def deactivate(
+        self,
+        db: Session,
+        product: Product,
+    ) -> Product:
+
+        product.is_active = False
+
+        db.add(product)
+        db.commit()
+        db.refresh(product)
+
+        return product
+
     def update_stock(
         self,
         db: Session,

@@ -43,3 +43,40 @@ class CategoryRepository:
         )
 
         return db.execute(statement).scalar_one_or_none()
+
+    def get_by_name(
+        self,
+        db: Session,
+        name: str,
+    ):
+        statement = (
+            select(Category)
+            .where(Category.name == name)
+        )
+
+        return db.execute(statement).scalar_one_or_none()
+
+    def update(
+        self,
+        db: Session,
+        category: Category,
+        update_data: dict,
+    ) -> Category:
+
+        for field, value in update_data.items():
+            setattr(category, field, value)
+
+        db.add(category)
+        db.commit()
+        db.refresh(category)
+
+        return category
+
+    def delete(
+        self,
+        db: Session,
+        category: Category,
+    ) -> None:
+
+        db.delete(category)
+        db.commit()

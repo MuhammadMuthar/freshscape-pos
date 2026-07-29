@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
+from app.core.dependencies import get_current_user
 from app.database.session import get_db
 from app.enums.transaction_type import TransactionType
 from app.schemas.inventory_transaction import (
@@ -26,6 +27,7 @@ service = InventoryService()
 def create_transaction(
     transaction: InventoryTransactionCreate,
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     return service.create_transaction(db, transaction)
 
@@ -40,6 +42,7 @@ def get_transactions(
     product_id: int | None = Query(None),
     transaction_type: TransactionType | None = Query(None),
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     return service.get_all(
         db,

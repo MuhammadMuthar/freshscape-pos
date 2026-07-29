@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
+from app.core.dependencies import get_current_user
 from app.database.session import get_db
 from app.schemas.supplier import SupplierCreate, SupplierResponse
 from app.services.supplier_service import SupplierService
@@ -21,6 +22,7 @@ service = SupplierService()
 def create_supplier(
     supplier: SupplierCreate,
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     return service.create(db, supplier)
 
@@ -31,5 +33,6 @@ def create_supplier(
 )
 def get_suppliers(
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     return service.get_all(db)

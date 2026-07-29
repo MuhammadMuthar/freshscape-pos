@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.routes.auth import router as auth_router
 from app.api.routes.categories import router as category_router
 from app.api.routes.customers import router as customer_router
 from app.api.routes.inventory import router as inventory_router
@@ -28,6 +29,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth_router)
 app.include_router(category_router)
 app.include_router(customer_router)
 app.include_router(inventory_router)

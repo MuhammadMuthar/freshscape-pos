@@ -8,3 +8,4 @@ from app.models.customer import Customer
 from app.models.sale import Sale
 from app.models.sale_item import SaleItem
 from app.models.sale_return import SaleReturn
+from app.models.user import User

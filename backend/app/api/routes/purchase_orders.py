@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
+from app.core.dependencies import get_current_user
 from app.database.session import get_db
 from app.enums.purchase_order_status import PurchaseOrderStatus
 from app.schemas.pagination import PaginatedResponse
@@ -26,6 +27,7 @@ service = PurchaseOrderService()
 def create_purchase_order(
     order: PurchaseOrderCreate,
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     return service.create(db, order)
 
@@ -40,6 +42,7 @@ def get_purchase_orders(
     status_filter: PurchaseOrderStatus | None = Query(None, alias="status"),
     supplier_id: int | None = Query(None),
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     return service.get_all(
         db, page, page_size, status_filter, supplier_id
@@ -53,6 +56,7 @@ def get_purchase_orders(
 def receive_purchase_order(
     purchase_order_id: int,
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     return service.receive(db, purchase_order_id)
 
@@ -64,5 +68,6 @@ def receive_purchase_order(
 def cancel_purchase_order(
     purchase_order_id: int,
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     return service.cancel(db, purchase_order_id)

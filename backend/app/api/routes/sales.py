@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
+from app.core.dependencies import get_current_user
 from app.database.session import get_db
 from app.schemas.pagination import PaginatedResponse
 from app.schemas.sale import SaleCreate, SaleResponse
@@ -22,6 +23,7 @@ service = SaleService()
 def create_sale(
     sale: SaleCreate,
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     return service.create(db, sale)
 
@@ -35,6 +37,7 @@ def get_sales(
     page_size: int = Query(20, ge=1, le=100),
     customer_id: int | None = Query(None),
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     return service.get_all(db, page, page_size, customer_id)
 
@@ -46,5 +49,6 @@ def get_sales(
 def get_sale(
     sale_id: int,
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     return service.get_by_id(db, sale_id)

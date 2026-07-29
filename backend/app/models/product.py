@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 from app.enums.product_unit import ProductUnit
 from sqlalchemy import (
     Boolean,
+    Enum as SqlEnum,
     ForeignKey,
     Numeric,
     String,
@@ -65,10 +66,13 @@ class Product(BaseModel):
         default=10,
     )
 
-    from sqlalchemy import Enum as SqlEnum  
-
     unit: Mapped[ProductUnit] = mapped_column(
-        SqlEnum(ProductUnit),
+        SqlEnum(
+            ProductUnit,
+            values_callable=lambda enum_cls: [
+                member.value for member in enum_cls
+            ],
+        ),
         default=ProductUnit.PCS,
         nullable=False,
     )
