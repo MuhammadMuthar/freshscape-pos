@@ -18,6 +18,8 @@ from app.models.base_model import BaseModel
 if TYPE_CHECKING:
     from app.models.category import Category
     from app.models.inventory_transaction import InventoryTransaction
+    from app.models.purchase_order_item import PurchaseOrderItem
+    from app.models.sale_item import SaleItem
 
 
 class Product(BaseModel):
@@ -86,5 +88,13 @@ class Product(BaseModel):
     )
 
     inventory_transactions: Mapped[list["InventoryTransaction"]] = relationship(
+        back_populates="product"
+    )
+
+    purchase_order_items: Mapped[list["PurchaseOrderItem"]] = relationship(
+        back_populates="product"
+    )
+
+    sale_items: Mapped[list["SaleItem"]] = relationship(
         back_populates="product"
     )
