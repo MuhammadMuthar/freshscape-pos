@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inventory -- FreshScape Market POS</title>
+<link rel="stylesheet" href="../css/style.css">
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+</head>
+<body data-page="inventory">
+
+  <div class="app-shell">
+    <div id="sidebar-root"></div>
+
+    <main class="main" x-data="inventoryPage()" x-init="init()">
+      <div class="page-header">
+        <div>
+          <div class="page-header__eyebrow">Stock</div>
+          <h1>Inventory Ledger</h1>
+        </div>
+        <button class="btn btn-primary" @click="openAdjustModal()">+ Record Adjustment</button>
+      </div>
+
+      <p class="text-soft text-sm" style="margin-top: -12px; margin-bottom: var(--space-5);">
+        Purchases, sales, and returns are logged here automatically from their own pages.
+        Use "Record Adjustment" only for manual corrections (damage, loss, recounts).
+      </p>
+
+      <!-- Filters -->
+      <div class="card flex-gap" style="margin-bottom: var(--space-4); flex-wrap: wrap;">
+        <select x-model="filters.product_id" @change="loadTransactions(1)"
+                style="padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); min-width: 200px;">
+          <option value="">All products</option>
+          <template x-for="p in products" :key="p.id">
+            <option :value="p.id" x-text="p.name"></option>
+          </template>
+        </select>
+        <select x-model="filters.transaction_type" @change="loadTransactions(1)"
+                style="padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm);">
+          <option value="">All types</option>
+          <option value="purchase">Purchase</option>
+          <option value="sale">Sale</option>
+          <option value="return">Return</option>
+          <option value="adjustment">Adjustment</option>
+        </select>
+      </div>
+
+      <!-- Table -->
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Product</th>
+              <th>Type</th>
+              <th>Change</th>
+              <th>Before &rarr; After</th>
+              <th>Reason</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-if="!loading && transactions.length === 0">
+              <tr><td colspan="6">
+                <div class="empty-state">
+                  <h3>No transactions found</h3>
+                  <p>Nothing matches these filters yet.</p>
+                </div>
+              </td></tr>
+            </template>
+            <template x-for="t in transactions" :key="t.id">
+              <tr>
+                <td class="mono text-sm text-soft" x-text="formatDate(t.created_at)"></td>
+                <td>
+                  <strong x-text="t.product.name"></strong>
+                  <div class="text-soft text-sm mono" x-text="t.product.sku"></div>
+                </td>
+                <td>
+                  <span class="stamp" :class="'stamp-' + (t.transaction_type === 'purchase' || t.transaction_type === 'return' ? 'active' : (t.transaction_type === 'sale' ? 'low' : 'pending'))"
+                        x-text="t.transaction_type"></span>
+                </td>
+                <td class="mono" :style="t.quantity_change > 0 ? 'color: var(--market-green)' : 'color: var(--stamp-red)'">
+                  <span x-text="(t.quantity_change > 0 ? '+' : '') + t.quantity_change"></span>
+                </td>
+                <td class="mono text-sm text-soft">
+                  <span x-text="t.quantity_before"></span> &rarr; <span x-text="t.quantity_after"></span>
+                </td>
+                <td class="text-soft text-sm" x-text="t.reason || '\u2014'"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div class="flex-between" style="margin-top: var(--space-4);" x-show="total > 0">
+        <span class="text-soft text-sm">
+          Showing <span x-text="transactions.length"></span> of <span x-text="total"></span>
+        </span>
+        <div class="flex-gap">
+          <button class="btn btn-secondary btn-sm" :disabled="!hasPrevious" @click="loadTransactions(page - 1)">Previous</button>
+          <span class="text-sm mono">Page <span x-text="page"></span> / <span x-text="totalPages"></span></span>
+          <button class="btn btn-secondary btn-sm" :disabled="!hasNext" @click="loadTransactions(page + 1)">Next</button>
+        </div>
+      </div>
+
+      <!-- Adjustment modal -->
+      <div class="modal-backdrop" x-show="showModal" x-cloak @click.self="closeModal()">
+        <div class="modal">
+          <div class="modal__header">
+            <h2>Record adjustment</h2>
+            <button class="modal__close" @click="closeModal()">&times;</button>
+          </div>
+
+          <form @submit.prevent="saveAdjustment()">
+            <div class="field">
+              <label>Product</label>
+              <select x-model="form.product_id" required>
+                <option value="" disabled>Select a product</option>
+                <template x-for="p in products" :key="p.id">
+                  <option :value="p.id" x-text="p.name + ' (current stock: ' + p.stock_quantity + ')'"></option>
+                </template>
+              </select>
+            </div>
+            <div class="field">
+              <label>Quantity change</label>
+              <input type="number" x-model="form.quantity_change" required>
+              <div class="field-hint">Positive to add stock, negative to remove it. Can't be zero.</div>
+            </div>
+            <div class="field">
+              <label>Reason</label>
+              <input type="text" x-model="form.reason" required placeholder="e.g. Damaged in storage, stock recount">
+            </div>
+            <div class="modal__actions">
+              <button type="button" class="btn btn-secondary" @click="closeModal()">Cancel</button>
+              <button type="submit" class="btn btn-primary" :disabled="saving" x-text="saving ? 'Saving...' : 'Record adjustment'"></button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="../js/api.js"></script>
+  <script src="../js/layout.js"></script>
+  <script>
+    function inventoryPage() {
+      return {
+        transactions: [],
+        products: [],
+        loading: true,
+        saving: false,
+        page: 1,
+        totalPages: 1,
+        total: 0,
+        hasNext: false,
+        hasPrevious: false,
+        filters: { product_id: '', transaction_type: '' },
+
+        showModal: false,
+        form: {},
+
+        async init() {
+          try {
+            const productsPage = await api.get('/products?page=1&page_size=100&is_active=true');
+            this.products = productsPage.items;
+          } catch (err) {
+            toast(err.message);
+          }
+          await this.loadTransactions(1);
+        },
+
+        async loadTransactions(page) {
+          this.loading = true;
+          try {
+            const params = new URLSearchParams();
+            params.set('page', page);
+            params.set('page_size', 20);
+            if (this.filters.product_id) params.set('product_id', this.filters.product_id);
+            if (this.filters.transaction_type) params.set('transaction_type', this.filters.transaction_type);
+
+            const result = await api.get('/inventory/transactions?' + params.toString());
+            this.transactions = result.items;
+            this.page = result.page;
+            this.totalPages = result.total_pages;
+            this.total = result.total;
+            this.hasNext = result.has_next;
+            this.hasPrevious = result.has_previous;
+          } catch (err) {
+            toast(err.message);
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        openAdjustModal() {
+          this.form = { product_id: '', quantity_change: '', reason: '' };
+          this.showModal = true;
+        },
+
+        closeModal() {
+          this.showModal = false;
+        },
+
+        async saveAdjustment() {
+          this.saving = true;
+          try {
+            await api.post('/inventory/transactions', {
+              product_id: parseInt(this.form.product_id, 10),
+              transaction_type: 'adjustment',
+              quantity_change: parseInt(this.form.quantity_change, 10),
+              reason: this.form.reason,
+            });
+            toast('Adjustment recorded.', 'success');
+            this.closeModal();
+            await this.loadTransactions(1);
+            // Stock levels shown elsewhere (product select labels) are
+            // now stale until reloaded -- refresh the product list too.
+            const productsPage = await api.get('/products?page=1&page_size=100&is_active=true');
+            this.products = productsPage.items;
+          } catch (err) {
+            toast(err.message);
+          } finally {
+            this.saving = false;
+          }
+        },
+
+        formatDate(iso) {
+          const d = new Date(iso);
+          return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        },
+      };
+    }
+  </script>
+</body>
+</html>

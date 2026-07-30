@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Returns -- FreshScape Market POS</title>
+<link rel="stylesheet" href="../css/style.css">
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+</head>
+<body data-page="returns">
+
+  <div class="app-shell">
+    <div id="sidebar-root"></div>
+
+    <main class="main" x-data="returnsPage()" x-init="init()">
+      <div class="page-header">
+        <div>
+          <div class="page-header__eyebrow">Sales</div>
+          <h1>Returns</h1>
+        </div>
+        <button class="btn btn-primary" @click="openCreateModal()">+ Record Return</button>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Sale Item</th>
+              <th>Quantity</th>
+              <th>Reason</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-if="!loading && returns.length === 0">
+              <tr><td colspan="4">
+                <div class="empty-state">
+                  <h3>No returns recorded</h3>
+                  <p>Returns will show up here once you record one.</p>
+                </div>
+              </td></tr>
+            </template>
+            <template x-for="r in returns" :key="r.id">
+              <tr>
+                <td class="mono text-sm">Sale Item #<span x-text="r.sale_item_id"></span></td>
+                <td class="mono" x-text="r.quantity"></td>
+                <td class="text-soft text-sm" x-text="r.reason || '\u2014'"></td>
+                <td class="mono text-sm text-soft" x-text="formatDate(r.created_at)"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="flex-between" style="margin-top: var(--space-4);" x-show="total > 0">
+        <span class="text-soft text-sm">
+          Showing <span x-text="returns.length"></span> of <span x-text="total"></span>
+        </span>
+        <div class="flex-gap">
+          <button class="btn btn-secondary btn-sm" :disabled="!hasPrevious" @click="loadReturns(page - 1)">Previous</button>
+          <span class="text-sm mono">Page <span x-text="page"></span> / <span x-text="totalPages"></span></span>
+          <button class="btn btn-secondary btn-sm" :disabled="!hasNext" @click="loadReturns(page + 1)">Next</button>
+        </div>
+      </div>
+
+      <!-- Create modal -->
+      <div class="modal-backdrop" x-show="showModal" x-cloak @click.self="closeModal()">
+        <div class="modal">
+          <div class="modal__header">
+            <h2>Record a return</h2>
+            <button class="modal__close" @click="closeModal()">&times;</button>
+          </div>
+
+          <form @submit.prevent="saveReturn()">
+            <div class="field">
+              <label>Sale</label>
+              <select x-model="selectedSaleId" @change="onSaleSelected()" required>
+                <option value="" disabled>Select a sale</option>
+                <template x-for="s in recentSales" :key="s.id">
+                  <option :value="s.id" x-text="'#' + s.id + ' -- ' + formatDate(s.created_at) + ' -- Rs ' + parseFloat(s.total_amount).toFixed(2)"></option>
+                </template>
+              </select>
+            </div>
+
+            <div class="field" x-show="selectedSale">
+              <label>Item to return</label>
+              <select x-model="form.sale_item_id" :required="!!selectedSale">
+                <option value="" disabled>Select an item</option>
+                <template x-for="item in (selectedSale ? selectedSale.items : [])" :key="item.id">
+                  <option :value="item.id" x-text="item.quantity + '\u00d7 ' + item.product.name"></option>
+                </template>
+              </select>
+            </div>
+
+            <div class="field" x-show="selectedSale">
+              <label>Quantity to return</label>
+              <input type="number" min="1" x-model="form.quantity" :required="!!selectedSale">
+              <div class="field-hint">If this exceeds what's still returnable, the server will reject it and explain why.</div>
+            </div>
+
+            <div class="field" x-show="selectedSale">
+              <label>Reason</label>
+              <input type="text" x-model="form.reason" placeholder="e.g. Wrong item, customer changed mind">
+            </div>
+
+            <div class="modal__actions">
+              <button type="button" class="btn btn-secondary" @click="closeModal()">Cancel</button>
+              <button type="submit" class="btn btn-primary" :disabled="saving || !selectedSale" x-text="saving ? 'Saving...' : 'Record return'"></button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="../js/api.js"></script>
+  <script src="../js/layout.js"></script>
+  <script>
+    function returnsPage() {
+      return {
+        returns: [],
+        recentSales: [],
+        loading: true,
+        saving: false,
+        page: 1,
+        totalPages: 1,
+        total: 0,
+        hasNext: false,
+        hasPrevious: false,
+
+        showModal: false,
+        selectedSaleId: '',
+        selectedSale: null,
+        form: {},
+
+        async init() {
+          await this.loadReturns(1);
+        },
+
+        async loadReturns(page) {
+          this.loading = true;
+          try {
+            const result = await api.get(`/returns?page=${page}&page_size=20`);
+            this.returns = result.items;
+            this.page = result.page;
+            this.totalPages = result.total_pages;
+            this.total = result.total;
+            this.hasNext = result.has_next;
+            this.hasPrevious = result.has_previous;
+          } catch (err) {
+            toast(err.message);
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        async openCreateModal() {
+          this.selectedSaleId = '';
+          this.selectedSale = null;
+          this.form = { sale_item_id: '', quantity: '', reason: '' };
+          this.showModal = true;
+          try {
+            const result = await api.get('/sales?page=1&page_size=50');
+            this.recentSales = result.items;
+          } catch (err) {
+            toast(err.message);
+          }
+        },
+
+        async onSaleSelected() {
+          this.form.sale_item_id = '';
+          try {
+            this.selectedSale = await api.get(`/sales/${this.selectedSaleId}`);
+          } catch (err) {
+            toast(err.message);
+          }
+        },
+
+        closeModal() {
+          this.showModal = false;
+          this.selectedSale = null;
+        },
+
+        async saveReturn() {
+          this.saving = true;
+          try {
+            await api.post('/returns', {
+              sale_item_id: parseInt(this.form.sale_item_id, 10),
+              quantity: parseInt(this.form.quantity, 10),
+              reason: this.form.reason || null,
+            });
+            toast('Return recorded.', 'success');
+            this.closeModal();
+            await this.loadReturns(1);
+          } catch (err) {
+            toast(err.message);
+          } finally {
+            this.saving = false;
+          }
+        },
+
+        formatDate(iso) {
+          return new Date(iso).toLocaleDateString();
+        },
+      };
+    }
+  </script>
+</body>
+</html>

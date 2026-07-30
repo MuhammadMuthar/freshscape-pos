@@ -52,3 +52,8 @@ def health():
     return {
         "status": "healthy"
     }
+
+from fastapi.staticfiles import StaticFiles
+
+# Mount static frontend pages
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")

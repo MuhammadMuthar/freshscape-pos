@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Purchase Orders -- FreshScape Market POS</title>
+<link rel="stylesheet" href="../css/style.css">
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+</head>
+<body data-page="purchase-orders">
+
+  <div class="app-shell">
+    <div id="sidebar-root"></div>
+
+    <main class="main" x-data="purchaseOrdersPage()" x-init="init()">
+      <div class="page-header">
+        <div>
+          <div class="page-header__eyebrow">Purchasing</div>
+          <h1>Purchase Orders</h1>
+        </div>
+        <button class="btn btn-primary" @click="openCreateModal()">+ New Purchase Order</button>
+      </div>
+
+      <!-- Filters -->
+      <div class="card flex-gap" style="margin-bottom: var(--space-4); flex-wrap: wrap;">
+        <select x-model="filters.status" @change="loadOrders(1)"
+                style="padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm);">
+          <option value="">All statuses</option>
+          <option value="pending">Pending</option>
+          <option value="received">Received</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+        <select x-model="filters.supplier_id" @change="loadOrders(1)"
+                style="padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); min-width: 200px;">
+          <option value="">All suppliers</option>
+          <template x-for="s in suppliers" :key="s.id">
+            <option :value="s.id" x-text="s.name"></option>
+          </template>
+        </select>
+      </div>
+
+      <!-- Table -->
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Supplier</th>
+              <th>Items</th>
+              <th>Total Cost</th>
+              <th>Status</th>
+              <th>Created</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-if="!loading && orders.length === 0">
+              <tr><td colspan="7">
+                <div class="empty-state">
+                  <h3>No purchase orders yet</h3>
+                  <p>Create one to start restocking from a supplier.</p>
+                </div>
+              </td></tr>
+            </template>
+            <template x-for="o in orders" :key="o.id">
+              <tr>
+                <td class="mono text-sm">#<span x-text="o.id"></span></td>
+                <td x-text="o.supplier.name"></td>
+                <td class="mono" x-text="o.items.length"></td>
+                <td class="mono" x-text="'Rs ' + parseFloat(o.total_cost).toFixed(2)"></td>
+                <td>
+                  <span class="stamp" :class="'stamp-' + o.status" x-text="o.status"></span>
+                </td>
+                <td class="mono text-sm text-soft" x-text="formatDate(o.created_at)"></td>
+                <td>
+                  <div class="table-actions">
+                    <button class="btn btn-secondary btn-sm" @click="openViewModal(o)">View</button>
+                    <button class="btn btn-primary btn-sm" x-show="o.status === 'pending'" @click="receiveOrder(o)">Receive</button>
+                    <button class="btn btn-danger btn-sm" x-show="o.status === 'pending'" @click="cancelOrder(o)">Cancel</button>
+                  </div>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div class="flex-between" style="margin-top: var(--space-4);" x-show="total > 0">
+        <span class="text-soft text-sm">
+          Showing <span x-text="orders.length"></span> of <span x-text="total"></span>
+        </span>
+        <div class="flex-gap">
+          <button class="btn btn-secondary btn-sm" :disabled="!hasPrevious" @click="loadOrders(page - 1)">Previous</button>
+          <span class="text-sm mono">Page <span x-text="page"></span> / <span x-text="totalPages"></span></span>
+          <button class="btn btn-secondary btn-sm" :disabled="!hasNext" @click="loadOrders(page + 1)">Next</button>
+        </div>
+      </div>
+
+      <!-- Create modal -->
+      <div class="modal-backdrop" x-show="showCreateModal" x-cloak @click.self="closeModals()">
+        <div class="modal" style="max-width: 620px;">
+          <div class="modal__header">
+            <h2>New purchase order</h2>
+            <button class="modal__close" @click="closeModals()">&times;</button>
+          </div>
+
+          <form @submit.prevent="saveOrder()">
+            <div class="field">
+              <label>Supplier</label>
+              <select x-model="createForm.supplier_id" required>
+                <option value="" disabled>Select a supplier</option>
+                <template x-for="s in suppliers" :key="s.id">
+                  <option :value="s.id" x-text="s.name"></option>
+                </template>
+              </select>
+            </div>
+
+            <label style="display:block; font-size: 13px; font-weight: 600; margin-bottom: var(--space-2); color: var(--ink-soft);">Items</label>
+
+            <template x-for="(item, index) in createForm.items" :key="index">
+              <div class="flex-gap" style="margin-bottom: var(--space-2); align-items: flex-start;">
+                <select x-model="item.product_id" required style="flex: 2; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-sm);">
+                  <option value="" disabled>Product</option>
+                  <template x-for="p in products" :key="p.id">
+                    <option :value="p.id" x-text="p.name"></option>
+                  </template>
+                </select>
+                <input type="number" min="1" x-model="item.quantity" placeholder="Qty" required
+                       style="flex: 1; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-sm);">
+                <input type="number" step="0.01" min="0" x-model="item.unit_cost" placeholder="Unit cost" required
+                       style="flex: 1; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-sm);">
+                <button type="button" class="btn btn-secondary btn-sm" @click="removeItemRow(index)" x-show="createForm.items.length > 1">&times;</button>
+              </div>
+            </template>
+
+            <button type="button" class="btn btn-secondary btn-sm" @click="addItemRow()" style="margin-bottom: var(--space-4);">+ Add item</button>
+
+            <div class="card" style="background: var(--paper-raised); padding: var(--space-3) var(--space-4); margin-bottom: var(--space-4);">
+              <div class="flex-between">
+                <span class="text-sm text-soft">Estimated total</span>
+                <span class="mono" style="font-weight: 600;" x-text="'Rs ' + estimatedTotal.toFixed(2)"></span>
+              </div>
+            </div>
+
+            <div class="modal__actions">
+              <button type="button" class="btn btn-secondary" @click="closeModals()">Cancel</button>
+              <button type="submit" class="btn btn-primary" :disabled="saving" x-text="saving ? 'Creating...' : 'Create purchase order'"></button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- View modal -->
+      <div class="modal-backdrop" x-show="showViewModal" x-cloak @click.self="closeModals()">
+        <div class="modal" x-show="viewingOrder">
+          <template x-if="viewingOrder">
+            <div>
+              <div class="modal__header">
+                <h2>Purchase order #<span x-text="viewingOrder.id"></span></h2>
+                <button class="modal__close" @click="closeModals()">&times;</button>
+              </div>
+              <p class="text-soft text-sm">
+                <span x-text="viewingOrder.supplier.name"></span> &middot;
+                <span class="stamp" :class="'stamp-' + viewingOrder.status" x-text="viewingOrder.status"></span>
+              </p>
+              <table style="margin-top: var(--space-3);">
+                <thead><tr><th>Product</th><th>Qty</th><th>Unit cost</th><th>Subtotal</th></tr></thead>
+                <tbody>
+                  <template x-for="item in viewingOrder.items" :key="item.id">
+                    <tr>
+                      <td x-text="item.product.name"></td>
+                      <td class="mono" x-text="item.quantity"></td>
+                      <td class="mono" x-text="'Rs ' + parseFloat(item.unit_cost).toFixed(2)"></td>
+                      <td class="mono" x-text="'Rs ' + (item.quantity * item.unit_cost).toFixed(2)"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+              <div class="flex-between" style="margin-top: var(--space-4);">
+                <span style="font-weight: 600;">Total</span>
+                <span class="mono" style="font-weight: 600;" x-text="'Rs ' + parseFloat(viewingOrder.total_cost).toFixed(2)"></span>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="../js/api.js"></script>
+  <script src="../js/layout.js"></script>
+  <script>
+    function purchaseOrdersPage() {
+      return {
+        orders: [],
+        products: [],
+        suppliers: [],
+        loading: true,
+        saving: false,
+        page: 1,
+        totalPages: 1,
+        total: 0,
+        hasNext: false,
+        hasPrevious: false,
+        filters: { status: '', supplier_id: '' },
+
+        showCreateModal: false,
+        showViewModal: false,
+        viewingOrder: null,
+        createForm: {},
+
+        async init() {
+          try {
+            const [productsPage, suppliers] = await Promise.all([
+              api.get('/products?page=1&page_size=100&is_active=true'),
+              api.get('/suppliers'),
+            ]);
+            this.products = productsPage.items;
+            this.suppliers = suppliers;
+          } catch (err) {
+            toast(err.message);
+          }
+          await this.loadOrders(1);
+        },
+
+        async loadOrders(page) {
+          this.loading = true;
+          try {
+            const params = new URLSearchParams();
+            params.set('page', page);
+            params.set('page_size', 20);
+            if (this.filters.status) params.set('status', this.filters.status);
+            if (this.filters.supplier_id) params.set('supplier_id', this.filters.supplier_id);
+
+            const result = await api.get('/purchase-orders?' + params.toString());
+            this.orders = result.items;
+            this.page = result.page;
+            this.totalPages = result.total_pages;
+            this.total = result.total;
+            this.hasNext = result.has_next;
+            this.hasPrevious = result.has_previous;
+          } catch (err) {
+            toast(err.message);
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        get estimatedTotal() {
+          return this.createForm.items.reduce((sum, item) => {
+            const qty = parseFloat(item.quantity) || 0;
+            const cost = parseFloat(item.unit_cost) || 0;
+            return sum + qty * cost;
+          }, 0);
+        },
+
+        openCreateModal() {
+          this.createForm = {
+            supplier_id: '',
+            items: [{ product_id: '', quantity: '', unit_cost: '' }],
+          };
+          this.showCreateModal = true;
+        },
+
+        addItemRow() {
+          this.createForm.items.push({ product_id: '', quantity: '', unit_cost: '' });
+        },
+
+        removeItemRow(index) {
+          this.createForm.items.splice(index, 1);
+        },
+
+        async saveOrder() {
+          this.saving = true;
+          try {
+            const payload = {
+              supplier_id: parseInt(this.createForm.supplier_id, 10),
+              items: this.createForm.items.map(item => ({
+                product_id: parseInt(item.product_id, 10),
+                quantity: parseInt(item.quantity, 10),
+                unit_cost: parseFloat(item.unit_cost),
+              })),
+            };
+            await api.post('/purchase-orders', payload);
+            toast('Purchase order created.', 'success');
+            this.closeModals();
+            await this.loadOrders(1);
+          } catch (err) {
+            toast(err.message);
+          } finally {
+            this.saving = false;
+          }
+        },
+
+        openViewModal(order) {
+          this.viewingOrder = order;
+          this.showViewModal = true;
+        },
+
+        closeModals() {
+          this.showCreateModal = false;
+          this.showViewModal = false;
+          this.viewingOrder = null;
+        },
+
+        async receiveOrder(order) {
+          if (!confirm(`Mark purchase order #${order.id} as received? This will increase stock for every item on it.`)) return;
+          try {
+            await api.post(`/purchase-orders/${order.id}/receive`);
+            toast('Purchase order received -- stock updated.', 'success');
+            await this.loadOrders(this.page);
+          } catch (err) {
+            toast(err.message);
+          }
+        },
+
+        async cancelOrder(order) {
+          if (!confirm(`Cancel purchase order #${order.id}?`)) return;
+          try {
+            await api.post(`/purchase-orders/${order.id}/cancel`);
+            toast('Purchase order cancelled.', 'success');
+            await this.loadOrders(this.page);
+          } catch (err) {
+            toast(err.message);
+          }
+        },
+
+        formatDate(iso) {
+          return new Date(iso).toLocaleDateString();
+        },
+      };
+    }
+  </script>
+</body>
+</html>
