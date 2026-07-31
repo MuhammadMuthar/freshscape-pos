@@ -1,3 +1,5 @@
+from datetime import date, datetime, timedelta
+
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -6,6 +8,31 @@ from app.models.inventory_transaction import InventoryTransaction
 
 
 class InventoryRepository:
+
+    def get_daily_summary(
+        self,
+        db: Session,
+        target_date: date,
+    ):
+        start = datetime.combine(target_date, datetime.min.time())
+        end = start + timedelta(days=1)
+
+        statement = (
+            select(
+                InventoryTransaction.transaction_type,
+                func.count(InventoryTransaction.id).label("count"),
+                func.coalesce(
+                    func.sum(InventoryTransaction.quantity_change), 0
+                ).label("net_change"),
+            )
+            .where(
+                InventoryTransaction.created_at >= start,
+                InventoryTransaction.created_at < end,
+            )
+            .group_by(InventoryTransaction.transaction_type)
+        )
+
+        return db.execute(statement).all()
 
     def create(
         self,

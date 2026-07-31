@@ -117,6 +117,22 @@ class ProductRepository:
 
         return list(result.scalars().all())
 
+    def get_low_stock(
+        self,
+        db: Session,
+    ):
+        statement = (
+            select(Product)
+            .options(selectinload(Product.category))
+            .where(
+                Product.is_active == True,  # noqa: E712
+                Product.stock_quantity <= Product.minimum_stock,
+            )
+            .order_by(Product.stock_quantity)
+        )
+
+        return list(db.execute(statement).scalars().all())
+
     def get_by_id(
         self,
         db: Session,

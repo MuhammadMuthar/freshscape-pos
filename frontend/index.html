@@ -43,6 +43,12 @@
         <p class="text-soft text-sm">Products at or below their minimum stock level.</p>
         <div id="low-stock-list"></div>
       </div>
+
+      <div class="card" style="margin-top: var(--space-5);">
+        <h3>Today's stock movement</h3>
+        <p class="text-soft text-sm">Net change by transaction type, today.</p>
+        <div id="daily-summary-list"></div>
+      </div>
     </main>
   </div>
 
@@ -51,14 +57,11 @@
   <script>
     async function loadDashboard() {
       try {
-        // No dedicated reporting endpoint yet (that's a later phase) --
-        // these are computed client-side from what already exists.
-        // Good enough to be useful now; will get more precise later.
-
-        const productsPage = await api.get('/products?page=1&page_size=100&is_active=true');
+        const productsPage = await api.get('/products?page=1&page_size=1&is_active=true');
         document.getElementById('kpi-products').textContent = productsPage.total;
 
-        const lowStock = productsPage.items.filter(p => p.stock_quantity <= p.minimum_stock);
+        // Real aggregate endpoint now, not a client-side approximation.
+        const lowStock = await api.get('/reports/low-stock');
         const lowStockEl = document.getElementById('kpi-low-stock');
         lowStockEl.textContent = lowStock.length;
         if (lowStock.length > 0) lowStockEl.classList.add('is-alert');
@@ -93,6 +96,30 @@
           .filter(s => new Date(s.created_at).toDateString() === today)
           .reduce((sum, s) => sum + parseFloat(s.total_amount), 0);
         document.getElementById('kpi-today-sales').textContent = 'Rs ' + todayTotal.toFixed(2);
+
+        // Real daily aggregate from the backend, grouped by transaction type.
+        const summary = await api.get('/reports/daily-summary');
+        const summaryEl = document.getElementById('daily-summary-list');
+        if (summary.total_transactions === 0) {
+          summaryEl.innerHTML = '<p class="text-soft text-sm" style="margin-top: var(--space-3);">No inventory movement recorded today yet.</p>';
+        } else {
+          summaryEl.innerHTML = `
+            <table style="margin-top: var(--space-3);">
+              <thead><tr><th>Type</th><th>Transactions</th><th>Net Change</th></tr></thead>
+              <tbody>
+                ${summary.breakdown.map(b => `
+                  <tr>
+                    <td><span class="stamp stamp-${b.transaction_type === 'sale' ? 'low' : (b.transaction_type === 'adjustment' ? 'pending' : 'active')}">${b.transaction_type}</span></td>
+                    <td class="mono">${b.transaction_count}</td>
+                    <td class="mono" style="color: ${b.net_quantity_change >= 0 ? 'var(--market-green)' : 'var(--stamp-red)'}">
+                      ${b.net_quantity_change >= 0 ? '+' : ''}${b.net_quantity_change}
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+        }
 
       } catch (err) {
         toast(err.message);

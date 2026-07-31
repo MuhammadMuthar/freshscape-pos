@@ -2,8 +2,9 @@ from fastapi import APIRouter, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, require_role
 from app.database.session import get_db
+from app.enums.user_role import UserRole
 from app.schemas.user import Token, UserCreate, UserResponse
 from app.services.auth_service import AuthService
 
@@ -23,6 +24,7 @@ service = AuthService()
 def register(
     user: UserCreate,
     db: Session = Depends(get_db),
+    current_user=Depends(require_role(UserRole.ADMIN)),
 ):
     return service.register(db, user)
 
